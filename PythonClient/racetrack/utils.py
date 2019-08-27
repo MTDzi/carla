@@ -1,5 +1,6 @@
 import numpy as np
 from collections import OrderedDict
+from operator import itemgetter
 
 import sys
 sys.path.append('..')
@@ -8,9 +9,9 @@ from carla.util import print_over_same_line
 
 def clip_throttle(throttle, curr_speed, target_speed):
     return np.clip(
-        throttle - 0.01 * (curr_speed-target_speed),
+        throttle - 0.001 * (curr_speed-target_speed),
         0.4,
-        0.9
+        0.8
     )
 
 

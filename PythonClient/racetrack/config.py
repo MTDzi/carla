@@ -3,8 +3,9 @@ from collections import OrderedDict
 
 
 # GENERAL
-IMAGE_DECIMATION = 4
-IMAGE_SIZE = (240, 320)
+WHICH_MODEL = 'simple_lenet'
+IMAGE_DECIMATION = 1
+IMAGE_SIZE = (24, 42)
 # If you're running low on memory, you may consider switching to `np.float32`
 DTYPE = 'float32'
 
@@ -18,8 +19,8 @@ THROTTLE_BOUNDS = (0, THROTTLE_BOUND)
 
 
 # "Controller regularization"
-STEER_NOISE = lambda: random.uniform(-0.1, 0.1)
-THROTTLE_NOISE = lambda: random.uniform(-0.05, 0.05)
+STEER_NOISE = lambda: 0#random.uniform(-0.1, 0.1)
+THROTTLE_NOISE = lambda: 0#random.uniform(-0.05, 0.05)
 
 # If you'd like to test out a (synthetic) stochastic policy
 STEER_NOISE_NN = lambda: 0 #random.uniform(-0.05, 0.05)
@@ -32,31 +33,18 @@ CONTROLLER = 'pad'
 
 TRAIN_SET = [
     'depth_data/{}_racetrack{}_depth_data{}.npy'.format(CONTROLLER, racetrack, episode)
-    for episode in range(9)
-    for racetrack in ['01', '02']
+    for episode in range(18)
+    # for racetrack in ['01', '02']
     #for racetrack in ['02']
-    # for racetrack in ['11']
+    for racetrack in ['15']
 ]
 TEST_SET = [
     'depth_data/{}_racetrack{}_depth_data{}.npy'.format(CONTROLLER, racetrack, episode)
-    for episode in [9]
-    for racetrack in ['01', '02']
+    for episode in [18]
+    # for racetrack in ['01', '02']
     # for racetrack in ['02']
-    # for racetrack in ['11']
+    for racetrack in ['15']
 ]
-
-# TRAIN_SET = [
-#     # 'depth_data/mpc_racetrack01_depth_data0.npy',
-#     'depth_data/normedfilled_racetrack11_depth_data0.npy',
-#     # 'depth_data/mpc_racetrack01_depth_data1.npy',
-#     'depth_data/normedfilled_racetrack11_depth_data1.npy',
-#     # 'depth_data/mpc_racetrack01_depth_data2.npy',
-#     'depth_data/normedfilled_racetrack11_depth_data2.npy',
-# ]
-# TEST_SET = [
-#     'depth_data/normedfilled_racetrack10_depth_data0.npy'
-# ]
-
 
 if (set(TRAIN_SET) & set(TEST_SET)) != set():
     print('TRAIN_SET and TEST_SET are not disjoint!!!!!')
@@ -75,7 +63,7 @@ NUM_X_CHANNELS = 1
 IMAGE_CLIP_UPPER = 0
 IMAGE_CLIP_LOWER = IMAGE_SIZE[0]
 
-SPEED_AS_INPUT = True
+SPEED_AS_INPUT = False
 
 STEPS_INTO_NEAR_FUTURE = range(1, 11)
 OUTPUTS_SPEC = OrderedDict(

@@ -18,8 +18,10 @@ from keras.models import Model
 from keras.layers import BatchNormalization, Dropout, Flatten, Dense, Input, Conv2D, concatenate
 from keras.layers.pooling import MaxPooling2D
 from keras.layers import concatenate
+from keras.layers import LeakyReLU
 from keras.optimizers import Adam
 from keras.regularizers import l2
+from keras.activations import relu, tanh
 
 import matplotlib.pyplot as plt
 import matplotlib as mpl
@@ -30,6 +32,7 @@ from utils import compose_input_for_nn, get_ordered_dict_for_labels
 
 from generator import get_data_gen, batcher, remove_speed_labels_from_outputs_spec
 from config import (
+    WHICH_MODEL,
     IMAGE_DECIMATION,
     IMAGE_SIZE, THROTTLE_BOUND, STEER_BOUND,
     BATCH_SIZE, NUM_EPOCHS,
@@ -43,6 +46,10 @@ from config import (
 )
 
 
+def lrelu(x):
+    return relu(x, alpha=0.3)
+
+
 def get_lenet_like_embedder(
     input_shape,
     act='elu', l2_reg=1e-3, filter_sz=5, num_filters=24, num_dense_neurons=512,
@@ -52,7 +59,6 @@ def get_lenet_like_embedder(
     to create a model that builds on top of the embedding_layer.
     """
     x = inp = Input(input_shape)
-    # x = BatchNormalization()(x)
     x = Conv2D(num_filters, (filter_sz, filter_sz),
                padding='same', kernel_regularizer=l2(l2_reg),
                activation=act)(x)
@@ -77,6 +83,29 @@ def get_lenet_like_embedder(
     enc = Dropout(.5)(x)
 
     return inp, enc
+
+
+def get_simple_lenet_like_embedder(
+    input_shape,
+    act='elu', l2_reg=1e-3, filter_sz=3, num_filters=8, num_dense_neurons=256,
+):
+    """
+    Returns a 2-tuple of (input, embedding_layer) that can later be used
+    to create a model that builds on top of the embedding_layer.
+    """
+    x = inp = Input(input_shape)
+    x = Conv2D(num_filters, (filter_sz, filter_sz),
+               padding='same', kernel_regularizer=l2(l2_reg),
+               activation=act)(x)
+    x = MaxPooling2D(2, 2)(x)
+
+    x = Flatten()(x)
+
+    x = Dense(num_dense_neurons, kernel_regularizer=l2(l2_reg), activation=act)(x)
+    enc = Dense(num_dense_neurons//2, kernel_regularizer=l2(l2_reg), activation=act)(x)
+
+    return inp, enc
+
 
 def add_throttle_upon_steer_wo_odometry(
     outputs_spec, embed_getter,
@@ -197,7 +226,10 @@ def extract_y(filename):
 
 def _get_data_from_one_racetrack(filename):
     which_OK, steer, throttle, speed = extract_y(filename)
-    X = pd.np.load(filename)[..., which_OK].transpose([2, 0, 1])
+    try:
+        X = pd.np.load(filename)[..., which_OK].transpose([2, 0, 1])
+    except IndexError:
+        import ipdb; ipdb.set_trace()
 
     if X.shape[1] != (IMAGE_CLIP_LOWER-IMAGE_CLIP_UPPER) // IMAGE_DECIMATION:
         X = X[:, IMAGE_CLIP_UPPER:IMAGE_CLIP_LOWER, :][:, ::IMAGE_DECIMATION, ::IMAGE_DECIMATION]
@@ -268,6 +300,7 @@ def get_preds_and_plot(
     labels = outputs_spec.keys()
     if speed_as_input:
         labels = [label_name for label_name in labels if 'speed' not in label_name]
+
     for i in range(num_batches):
         X_train, y_train_tmp = next(train_batch_gen)
         X_test, y_test_tmp = next(test_batch_gen)
@@ -293,7 +326,10 @@ def get_preds_and_plot(
             epoch,
             results_dir
         )
-        mse_plural[label_name] = mean_squared_error(y_test[label_name], preds_test[label_name])
+        try:
+            mse_plural[label_name] = mean_squared_error(y_test[label_name], preds_test[label_name])
+        except:
+            import ipdb; ipdb.set_trace()
 
     return mse_plural
 
@@ -403,14 +439,20 @@ def main():
         IMAGE_SIZE[1] // IMAGE_DECIMATION,
         NUM_X_CHANNELS+NUM_X_DIFF_CHANNELS
     )
-    embed_getter = lambda: get_lenet_like_embedder(input_shape)
+    embed_getter = lambda: {
+        'lenet': get_lenet_like_embedder(input_shape),
+        'simple_lenet': get_simple_lenet_like_embedder(input_shape, act='relu'),
+    }[WHICH_MODEL]
 
     if SPEED_AS_INPUT:
         top_layer_adder = add_throttle_upon_steer_w_odometry
     else:
         top_layer_adder = add_throttle_upon_steer_wo_odometry
 
-    model = top_layer_adder(OUTPUTS_SPEC, embed_getter)
+    if WHICH_MODEL == 'simple_lenet':
+        model = top_layer_adder(OUTPUTS_SPEC, embed_getter, act='relu', num_dense_neurons=128)
+    else:
+        model = top_layer_adder(OUTPUTS_SPEC, embed_getter)
 
     loss = {layer_name: spec['loss'] for layer_name, spec in OUTPUTS_SPEC.items()}
     loss_weights = {layer_name: spec['weight'] for layer_name, spec in OUTPUTS_SPEC.items()}

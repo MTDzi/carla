@@ -1,0 +1,3 @@
+[submodule "PythonClient/waypoints_finders"]
+	path = PythonClient/waypoints_finders
+	url = https://github.com/MTDzi/waypoints_finders

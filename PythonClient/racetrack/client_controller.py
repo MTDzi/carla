@@ -38,6 +38,7 @@ from utils import clip_throttle, print_measurements
 from model_predictive_control import MPCController
 from proportion_derivative_control import PDController
 from gamepad_controller import PadController
+from gap_follower_controller import GapFollowerController
 
 
 def run_carla_client(args):
@@ -75,6 +76,15 @@ def run_carla_client(args):
     elif args.controller_name == 'pad':
         weather_id = 5
         controller = PadController()
+    elif args.controller_name == 'gf':
+        weather_id = 7
+        controller = GapFollowerController(
+            target_speed=args.target_speed,
+            depth_cutoff=-1,
+            steer_coeff=0.35,
+            horizontal_stretch=2.5,
+            statistic=np.nanmean,
+        )
     elif args.controller_name == 'nn':
         # Import it here because importing TensorFlow is time consuming
         from neural_network_controller import NNController  # noqa
@@ -138,7 +148,8 @@ def run_carla_client(args):
                 camera = Camera('CameraDepth', PostProcessing='Depth', FOV=69.4)
                 # MD: I got the 69.4 from here: https://click.intel.com/intelr-realsensetm-depth-camera-d435.html
                 camera.set_image_size(IMAGE_SIZE[1], IMAGE_SIZE[0])
-                camera.set_position(2.30, 0, 1.30)
+                # camera.set_position(2.30, 0, 1.30)
+                camera.set_position(0.45, 0, 1.55)
                 settings.add_sensor(camera)
 
             else:
